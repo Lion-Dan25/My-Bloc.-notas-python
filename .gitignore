@@ -3,6 +3,8 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+**/nota_guardada.txt
+
 # C extensions
 *.so
 
