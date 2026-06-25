@@ -1,165 +1,174 @@
 import tkinter as tk
-from tkinter import messagebox, filedialog, ttk
-import json
-import os
+from tkinter import messagebox, ttk
 
-# --- CONFIGURACIÓN DE TEMAS FRESCOS ---
-TEMAS = {
-    "Minimalista Mint (Relajante)": {
-        "bg_editor": "#F4F9F4", "fg_editor": "#2C4A3E",
-        "bg_panel": "#E1EFE0", "bg_btn": "#A2D2A8", "fg_btn": "#1C3328",
-        "fuente": ("Segoe UI", 12)
-    },
-    "Cyberpunk Night (Oscuro)": {
-        "bg_editor": "#1E1E2F", "fg_editor": "#00FFFF",
-        "bg_panel": "#27293D", "bg_btn": "#FF007F", "fg_btn": "#FFFFFF",
-        "fuente": ("Consolas", 12)
-    },
-    "Atardecer Caliente (Productivo)": {
-        "bg_editor": "#FFF5EE", "fg_editor": "#4A2E2B",
-        "bg_panel": "#FFE4E1", "bg_btn": "#FFA07A", "fg_btn": "#4A2E2B",
-        "fuente": ("Helvetica", 12)
-    }
-}
-
-class BlocPremium:
+class BlocCool:
     def __init__(self, root):
         self.root = root
-        self.root.title("🚀 Mi Bloc Personal Premium")
-        self.root.geometry("850x550")
-        self.root.configure(bg="#F0F2F5")
+        self.root.title("Proyecto Bloc Cool")
+        self.root.geometry("600x520")
+        
+        # Paleta de colores profesionales para cada tema
+        self.themes = {
+            "Original (Blanco)": {"bg": "#ffffff", "fg": "#2c3e50", "accent": "#ecf0f1", "nav_bg": "#f8f9fa"},
+            "Pastel Relajante": {"bg": "#fff5f5", "fg": "#4a4a4a", "accent": "#ffe3e3", "nav_bg": "#ffd1d1"},
+            "Modo Oscuro Cyberpunk": {"bg": "#0f0c1b", "fg": "#00ffcc", "accent": "#1a1530", "nav_bg": "#1f1a3a"},
+            "Ejecutivo (Azul/Gris)": {"bg": "#2b3e50", "fg": "#ffffff", "accent": "#1e2b37", "nav_bg": "#34495e"}
+        }
+        self.current_theme = "Original (Blanco)"
 
-        self.archivo_actual = None
-        self.tareas = []  # Lista para guardar los textos de las tareas
+        # Contenedor Principal (Donde se intercambian las pantallas)
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True)
 
-        # --- ESTILOS MODERNOS (TTK) ---
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-
-        # --- CONTENEDOR PRINCIPAL ---
-        self.paned = tk.PanedWindow(root, orient=tk.HORIZONTAL, bg="#DCDCDC", sashwidth=4)
-        self.paned.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
-
-        # --- COLUMNA IZQUIERDA: EDITOR DE TEXTO ---
-        self.frame_editor = tk.Frame(self.paned, bg="#FFFFFF")
-        self.paned.add(self.frame_editor, minsize=500)
-
-        # Barra de Herramientas Superior del Editor
-        self.barratools = tk.Frame(self.frame_editor, bg="#F0F2F5", height=40)
-        self.barratools.pack(fill=tk.X, side=tk.TOP)
-
-        # Botones del Editor con estilo plano
-        self.btn_guardar = tk.Button(self.barratools, text="💾 Guardar", command=self.guardar_archivo, relief=tk.FLAT, bg="#E4E6EB")
-        self.btn_guardar.pack(side=tk.LEFT, padx=5, pady=5)
-
-        self.btn_cargar = tk.Button(self.barratools, text="📂 Abrir", command=self.cargar_archivo, relief=tk.FLAT, bg="#E4E6EB")
-        self.btn_cargar.pack(side=tk.LEFT, padx=5, pady=5)
-
-        # Selector de Temas Combinados
-        tk.Label(self.barratools, text="🎨 Tema:", bg="#F0F2F5", font=("Segoe UI", 10)).pack(side=tk.LEFT, padx=(15, 2))
-        self.combo_temas = ttk.Combobox(self.barratools, values=list(TEMAS.keys()), state="readonly", width=25)
-        self.combo_temas.set("Minimalista Mint (Relajante)")
-        self.combo_temas.pack(side=tk.LEFT, padx=5, pady=5)
-        self.combo_temas.bind("<<ComboboxSelected>>", self.aplicar_tema)
-
-        # Campo de Texto Principal
-        self.text_area = tk.Text(self.frame_editor, wrap=tk.WORD, bd=0, padx=15, pady=15)
-        self.text_area.pack(fill=tk.BOTH, expand=True)
-
-        # --- COLUMNA DERECHA: PANEL DE TAREAS (CHECKBOXES) ---
-        self.frame_tareas = tk.Frame(self.paned, width=300, bg="#E1EFE0", padx=10, pady=10)
-        self.paned.add(self.frame_tareas, minsize=250)
-
-        tk.Label(self.frame_tareas, text="📋 Mis Tareas de Hoy", font=("Segoe UI", 13, "bold"), bg="#E1EFE0").pack(anchor=tk.W, pady=(0, 10))
-
-        # Input para nueva tarea
-        self.entry_tarea = ttk.Entry(self.frame_tareas, font=("Segoe UI", 11))
-        self.entry_tarea.pack(fill=tk.X, pady=5)
-        self.entry_tarea.bind("<Return>", lambda event: self.agregar_tarea())
-
-        self.btn_add_tarea = tk.Button(self.frame_tareas, text="➕ Añadir Tarea", command=self.agregar_tarea, relief=tk.FLAT, font=("Segoe UI", 9, "bold"))
-        self.btn_add_tarea.pack(fill=tk.X, pady=2)
-
-        # Contenedor para la lista de checkboxes scrolleable
-        self.canvas_tareas = tk.Canvas(self.frame_tareas, bg="#E1EFE0", bd=0, highlightthickness=0)
-        self.scroll_tareas = ttk.Scrollbar(self.frame_tareas, orient="vertical", command=self.canvas_tareas.yview)
-        self.scroll_frame_tareas = tk.Frame(self.canvas_tareas, bg="#E1EFE0")
-
-        self.scroll_frame_tareas.bind(
-            "<Configure>",
-            lambda e: self.canvas_tareas.configure(scrollregion=self.canvas_tareas.bbox("all"))
+        # --- EL ENGRANAJE DE ÉLITE (Esquina Superior Derecha) ---
+        # bd=0 y highlightthickness=0 eliminan por completo el borde para fusionarse con el fondo
+        self.config_btn = tk.Button(
+            self.root, text="⚙", font=("Arial", 18),
+            bd=0, highlightthickness=0, cursor="hand2",
+            command=self.toggle_menu_temas
         )
-        self.canvas_tareas.create_window((0, 0), window=self.scroll_frame_tareas, anchor="nw")
-        self.canvas_tareas.configure(yscrollcommand=self.scroll_tareas.set)
+        # Lo posicionamos de forma absoluta arriba a la derecha
+        self.config_btn.place(relx=0.97, rely=0.01, anchor="ne")
 
-        self.canvas_tareas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=10)
-        self.scroll_tareas.pack(side=tk.RIGHT, fill=tk.Y)
+        # Menú desplegable oculto para cambiar de tema
+        self.menu_temas = tk.Frame(self.root, bd=1, relief=tk.SOLID)
+        self.crear_menu_temas()
 
-        # Aplicar el tema por defecto al iniciar
+        # Inicialización de las dos vistas independientes
+        self.frame_notas = tk.Frame(self.main_frame)
+        self.frame_tareas = tk.Frame(self.main_frame)
+
+        self.crear_vista_notas()
+        self.crear_vista_tareas()
+
+        # Barra de navegación inferior
+        self.nav_bar = tk.Frame(self.root, height=65)
+        self.nav_bar.pack(side=tk.BOTTOM, fill=tk.X)
+        self.crear_nav_bar()
+
+        # Lanzar la aplicación mostrando las Notas y aplicando el tema base
+        self.mostrar_vista("notas")
         self.aplicar_tema()
 
-    def aplicar_tema(self, event=None):
-        nombre_tema = self.combo_temas.get()
-        t = TEMAS[nombre_tema]
+    def crear_vista_notas(self):
+        # Un editor de notas limpio que abarca toda la pantalla
+        self.text_area = tk.Text(self.frame_notas, font=("Arial", 12), bd=0, padx=15, pady=40)
+        self.text_area.pack(fill=tk.BOTH, expand=True)
 
-        # Configurar Editor
-        self.text_area.configure(bg=t["bg_editor"], fg=t["fg_editor"], font=t["fuente"])
+    def crear_vista_tareas(self):
+        # Título del gestor de tareas
+        self.lbl_tareas = tk.Label(self.frame_tareas, text="⚡ Lista de Tareas", font=("Arial", 14, "bold"), pady=40)
+        self.lbl_tareas.pack()
         
-        # Configurar Paneles y Botones
-        self.frame_tareas.configure(bg=t["bg_panel"])
-        self.canvas_tareas.configure(bg=t["bg_panel"])
-        self.scroll_frame_tareas.configure(bg=t["bg_panel"])
+        # Entrada de texto para añadir nuevas tareas
+        self.entry_tarea = tk.Entry(self.frame_tareas, font=("Arial", 12), width=30)
+        self.entry_tarea.pack(pady=5)
+        self.entry_tarea.insert(0, "Escribe una tarea y presiona Enter...")
+        self.entry_tarea.bind("<FocusIn>", lambda e: self.entry_tarea.delete(0, tk.END) if self.entry_tarea.get() == "Escribe una tarea y presiona Enter..." else None)
+        self.entry_tarea.bind("<Return>", self.agregar_tarea)
         
-        self.btn_add_tarea.configure(bg=t["bg_btn"], fg=t["fg_btn"])
-        self.btn_guardar.configure(bg=t["bg_btn"], fg=t["fg_btn"])
-        self.btn_cargar.configure(bg=t["bg_btn"], fg=t["fg_btn"])
+        # Contenedor dinámico de tareas
+        self.lista_frame = tk.Frame(self.frame_tareas)
+        self.lista_frame.pack(fill=tk.BOTH, expand=True, padx=40, pady=10)
 
-    def agregar_tarea(self):
+    def agregar_tarea(self, event):
         texto = self.entry_tarea.get().strip()
-        if texto:
-            var_check = tk.BooleanVar()
+        if texto and texto != "":
+            frame_item = tk.Frame(self.lista_frame, bg=self.lista_frame["bg"])
+            frame_item.pack(fill=tk.X, pady=4)
             
-            # Contenedor para el checkbox y botón de borrar
-            item_frame = tk.Frame(self.scroll_frame_tareas, bg=self.frame_tareas.cget("bg"))
-            item_frame.pack(fill=tk.X, anchor=tk.W, pady=2)
-
-            # Checkbox moderno usando ttk
-            chk = ttk.Checkbutton(item_frame, text=texto, variable=var_check, command=lambda: self.marcar_tarea(chk, var_check))
-            chk.pack(side=tk.LEFT, anchor=tk.W, padx=5)
-
-            # Botón discreto para eliminar tarea de la lista
-            btn_del = tk.Button(item_frame, text="❌", bd=0, bg=self.frame_tareas.cget("bg"), fg="red", 
-                                command=lambda: item_frame.destroy(), cursor="hand2")
-            btn_del.pack(side=tk.RIGHT, padx=5)
-
+            var = tk.BooleanVar()
+            chk = tk.Checkbutton(
+                frame_item, text=texto, variable=var, font=("Arial", 11),
+                bg=self.lista_frame["bg"], fg=self.text_area["fg"],
+                selectcolor=self.text_area["bg"], activebackground=self.lista_frame["bg"]
+            )
+            chk.pack(side=tk.LEFT)
+            
+            btn_borrar = tk.Button(frame_item, text="❌", bd=0, bg=self.lista_frame["bg"], fg="#e74c3c", activebackground=self.lista_frame["bg"], command=frame_item.destroy)
+            btn_borrar.pack(side=tk.RIGHT)
+            
             self.entry_tarea.delete(0, tk.END)
+
+    def crear_nav_bar(self):
+        # Estructura limpia de botones inferiores con iconos representativos
+        self.btn_notas = tk.Button(self.nav_bar, text="📝\nNotas", font=("Arial", 10), bd=0, command=lambda: self.mostrar_vista("notas"))
+        self.btn_notas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.btn_tareas = tk.Button(self.nav_bar, text="📋\nTareas", font=("Arial", 10), bd=0, command=lambda: self.mostrar_vista("tareas"))
+        self.btn_tareas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Botón borrador / Deshabilitado para el futuro
+        self.btn_dic = tk.Button(self.nav_bar, text="📖\nDiccionario", font=("Arial", 10), bd=0, state=tk.DISABLED)
+        self.btn_dic.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+    def mostrar_vista(self, vista):
+        # Quitamos del medio la vista actual para renderizar la seleccionada
+        self.frame_notas.pack_forget()
+        self.frame_tareas.pack_forget()
+        
+        if vista == "notas":
+            self.frame_notas.pack(fill=tk.BOTH, expand=True)
+        elif vista == "tareas":
+            self.frame_tareas.pack(fill=tk.BOTH, expand=True)
+
+    def crear_menu_temas(self):
+        # Ventana modal flotante simplificada
+        tk.Label(self.menu_temas, text="Temas disponibles", font=("Arial", 9, "bold"), bg="#f8f9fa", pady=5).pack(fill=tk.X)
+        for nombre_tema in self.themes.keys():
+            btn = tk.Button(
+                self.menu_temas, text=nombre_tema, font=("Arial", 9), bd=0, padx=10, pady=5,
+                command=lambda t=nombre_tema: self.cambiar_tema(t)
+            )
+            btn.pack(fill=tk.X)
+
+    def toggle_menu_temas(self):
+        # Muestra u oculta el modal flotante justo debajo del icono
+        if self.menu_temas.winfo_viewable():
+            self.menu_temas.place_forget()
         else:
-            messagebox.showwarning("Atención", "No puedes añadir una tarea vacía.")
+            self.menu_temas.place(relx=0.97, rely=0.07, anchor="ne")
 
-    def marcar_tarea(self, checkbox, variable):
-        # Efecto visual cool: Si se marca, podríamos hacer algo, o simplemente dejar que guarde estado
-        pass
+    def cambiar_tema(self, nombre_tema):
+        self.current_theme = nombre_tema
+        self.aplicar_tema()
+        self.menu_temas.place_forget()
 
-    def guardar_archivo(self):
-        contenido = self.text_area.get("1.0", tk.END)
-        if not self.archivo_actual:
-            self.archivo_actual = filedialog.asksaveasfilename(defaultextension=".txt",
-                                                                 filetypes=[("Archivos de texto", "*.txt")])
-        if self.archivo_actual:
-            with open(self.archivo_actual, "w", encoding="utf-8") as f:
-                f.write(contenido)
-            self.root.title(f"🚀 Mi Bloc Personal Premium - {os.path.basename(self.archivo_actual)}")
+    def aplicar_tema(self):
+        t = self.themes[self.current_theme]
+        
+        # 1. Ajustes del contenedor principal y raíz
+        self.root.config(bg=t["bg"])
+        self.main_frame.config(bg=t["bg"])
+        self.frame_notas.config(bg=t["bg"])
+        self.frame_tareas.config(bg=t["bg"])
+        self.lista_frame.config(bg=t["bg"])
+        
+        # 2. Ajustes específicos de las vistas
+        self.text_area.config(bg=t["bg"], fg=t["fg"], insertbackground=t["fg"])
+        self.lbl_tareas.config(bg=t["bg"], fg=t["fg"])
+        
+        # 3. MAGIC COUPLING: Mimetizar el engranaje con el fondo actual
+        self.config_btn.config(
+            bg=t["bg"], fg=t["fg"], 
+            activebackground=t["bg"], activeforeground=t["fg"]
+        )
+        
+        # 4. Paleta de colores para el pop-up de temas
+        self.menu_temas.config(bg=t["nav_bg"])
+        for widget in self.menu_temas.winfo_children():
+            if isinstance(widget, tk.Label):
+                widget.config(bg=t["accent"], fg=t["fg"])
+            elif isinstance(widget, tk.Button):
+                widget.config(bg=t["nav_bg"], fg=t["fg"], activebackground=t["accent"], activeforeground=t["fg"])
 
-    def cargar_archivo(self):
-        self.archivo_actual = filedialog.askopenfilename(filetypes=[("Archivos de texto", "*.txt")])
-        if self.archivo_actual:
-            with open(self.archivo_actual, "r", encoding="utf-8") as f:
-                contenido = f.read()
-            self.text_area.delete("1.0", tk.END)
-            self.text_area.insert("1.0", contenido)
-            self.root.title(f"🚀 Mi Bloc Personal Premium - {os.path.basename(self.archivo_actual)}")
+        # 5. Colores de la barra de navegación inferior
+        self.nav_bar.config(bg=t["nav_bg"])
+        for btn in [self.btn_notas, self.btn_tareas, self.btn_dic]:
+            if btn["state"] != tk.DISABLED:
+                btn.config(bg=t["nav_bg"], fg=t["fg"], activebackground=t["accent"], activeforeground=t["fg"])
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = BlocPremium(root)
+    app = BlocCool(root)
     root.mainloop()
