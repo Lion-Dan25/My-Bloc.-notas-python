@@ -20,7 +20,8 @@ def main():
 
     # 3. Crear el contenedor dividido responsivo (PanedWindow)
     # Esto te permite arrastrar la barra del medio con el ratón para expandir o encoger los paneles
-    panel_dividido = tk.PanedWindow(root, orient="horizontal", bd=0, handleSize=8, bg="#202225")
+ # Corrección: usa 'handlesize' en minúsculas
+    panel_dividido = tk.PanedWindow(root, orient="horizontal", bd=0, handlesize=8, bg="#202225")
     panel_dividido.pack(fill="both", expand=True)
 
     # 4. Instanciar nuestros componentes modulares pasándoles el diccionario compartido
