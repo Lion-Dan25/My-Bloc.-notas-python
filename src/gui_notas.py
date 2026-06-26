@@ -60,7 +60,7 @@ class PanelNotas(tk.Frame):
 
     def cargar_nota_inicial(self):
         """Rellena el editor con el último texto guardado en el JSON."""
-        texto_previo = self.datos.get("notas", "")
+        texto_previo = self.datos[0].get("notas", "")
         self.txt_editor.insert("1.0", texto_previo)
 
     def cambiar_tema(self, event=None):
