@@ -1,128 +1,94 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import simpledialog
 
 class PanelTareas(tk.Frame):
     def __init__(self, parent, datos, callback_guardar):
-        """
-        Componente modular para la gestión de tareas.
-        parent: El contenedor de Tkinter donde se va a dibujar.
-        datos: El diccionario central de datos de la app.
-        callback_guardar: La función que guarda los cambios en el JSON.
-        """
-        super().__init__(parent, bg="#2f3136")  # Fondo gris oscuro moderno
+        super().__init__(parent, bg="#36393f")
         self.datos = datos
         self.callback_guardar = callback_guardar
+
+        # Título de sección
+        self.lbl_titulo = tk.Label(self, text="LISTA DE TAREAS", bg="#36393f", fg="#ffffff", font=("Arial", 14, "bold"))
+        self.lbl_titulo.pack(pady=15)
+
+        # Contenedor para la lista de checkboxes
+        self.canvas = tk.Canvas(self, bg="#36393f", bd=0, highlightthickness=0)
+        self.scroll_frame = tk.Frame(self.canvas, bg="#36393f")
         
-        # Guardamos un estado interno de colores para usar al redibujar elementos
-        self.colores_actuales = {
-            "bg": "#2f3136",
-            "fg": "#ffffff",
-            "input_bg": "#40444b",
-            "text_muted": "#b9bbbe"
-        }
-        
+        self.canvas.pack(fill="both", expand=True, padx=20)
+        self.canvas.create_window((0, 0), window=self.scroll_frame, anchor="nw")
+
         self.crear_componentes()
         self.actualizar_lista()
 
     def crear_componentes(self):
-        # Título de la sección (Guardado en self para poder cambiarle el color)
-        self.lbl_titulo = tk.Label(
-            self, text="⚡ Mis Tareas", 
-            font=("Segoe UI", 13, "bold"), fg=self.colores_actuales["fg"], bg=self.colores_actuales["bg"]
+        # --- BOTÓN FLOTANTE (FAB) '+' PARA TAREAS ---
+        self.btn_fab_tarea = tk.Button(
+            self, text="+", bg="#ff007f", fg="#ffffff", font=("Arial", 18, "bold"),
+            bd=0, width=3, height=1, cursor="hand2", activebackground="#cc0066",
+            command=self.pedir_nueva_tarea
         )
-        self.lbl_titulo.pack(pady=10)
+        self.btn_fab_tarea.place(relx=0.94, rely=0.88, anchor="se")
 
-        # Entrada de texto para añadir tareas
-        self.txt_nueva_tarea = tk.Entry(
-            self, font=("Segoe UI", 11), bg=self.colores_actuales["input_bg"], fg=self.colores_actuales["fg"], 
-            insertbackground="white", bd=0, relief="flat"
-        )
-        self.txt_nueva_tarea.pack(fill="x", padx=15, pady=5, ipady=6)
-        
-        # Al pulsar Enter, se ejecuta automáticamente 'agregar_tarea'
-        self.txt_nueva_tarea.bind("<Return>", self.agregar_tarea)
-
-        # Contenedor interno con Scrollbar para las tareas acumuladas
-        self.canvas = tk.Canvas(self, bg=self.colores_actuales["bg"], bd=0, highlightthickness=0)
-        self.scrollbar = ttk.Scrollbar(self, orient="vertical", command=self.canvas.yview)
-        self.frame_lista = tk.Frame(self.canvas, bg=self.colores_actuales["bg"])
-
-        self.frame_lista.bind(
-            "<Configure>", 
-            lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
-        )
-        self.canvas.create_window((0, 0), window=self.frame_lista, anchor="nw")
-        self.canvas.configure(yscrollcommand=self.scrollbar.set)
-
-        self.canvas.pack(side="left", fill="both", expand=True, padx=15, pady=10)
-        self.scrollbar.pack(side="right", fill="y", pady=10)
-
-    def actualizar_lista(self):
-        """Limpia el contenedor visual y vuelve a dibujar las tareas vigentes usando los colores actuales."""
-        for widget in self.frame_lista.winfo_children():
-            widget.destroy()
-
-        bg_actual = self.colores_actuales["bg"]
-        fg_muted = self.colores_actuales["text_muted"]
-
-        for index, tarea in enumerate(self.datos.get("tareas", [])):
-            item_frame = tk.Frame(self.frame_lista, bg=bg_actual)
-            item_frame.pack(fill="x", pady=4)
-
-            # Texto de la tarea
-            lbl_item = tk.Label(
-                item_frame, text=f"• {tarea}", 
-                font=("Segoe UI", 11), fg=fg_muted, bg=bg_actual, anchor="w"
-            )
-            lbl_item.pack(side="left", fill="x", expand=True)
-
-            # Botón de eliminar con una "❌"
-            btn_borrar = tk.Button(
-                item_frame, text="❌", bg=bg_actual, fg="#ff4757", bd=0, 
-                activebackground=bg_actual, cursor="hand2",
-                command=lambda i=index: self.eliminar_tarea(i)
-            )
-            btn_borrar.pack(side="right", padx=5)
-
-    def aplicar_tema(self, colores):
-        """MÉTODO NUEVO: Sincroniza los colores de las tareas con el tema seleccionado en main.py"""
-        self.colores_actuales.update(colores)
-        
-        bg = self.colores_actuales.get("bg")
-        fg = self.colores_actuales.get("fg")
-        input_bg = self.colores_actuales.get("input_bg")
-        
-        # Configurar elementos estáticos
-        self.configure(bg=bg)
-        self.lbl_titulo.configure(bg=bg, fg=fg)
-        self.txt_nueva_tarea.configure(bg=input_bg, fg=fg)
-        self.canvas.configure(bg=bg)
-        self.frame_lista.configure(bg=bg)
-        
-        # Cambiar color del cursor de la entrada de texto
-        if bg == "#ffffff":
-            self.txt_nueva_tarea.configure(insertbackground="black")
-        else:
-            self.txt_nueva_tarea.configure(insertbackground="white")
-            
-        # Forzar el redibujado de la lista para que las filas cambien de color
-        self.actualizar_lista()
-
-    def agregar_tarea(self, event=None):
-        texto = self.txt_nueva_tarea.get().strip()
-        if texto:
+    def pedir_nueva_tarea(self):
+        # Ventana emergente nativa y rápida para capturar la tarea
+        tarea_texto = simpledialog.askstring("Nueva Tarea", "Escribe tu tarea pendiente:", parent=self)
+        if tarea_texto and tarea_texto.strip():
             if "tareas" not in self.datos:
                 self.datos["tareas"] = []
             
-            self.datos["tareas"].append(texto)
-            self.txt_nueva_tarea.delete(0, tk.END)
-            
-            # Guardamos el cambio y refrescamos la vista
+            # Guardamos como diccionario interno para soportar estados
+            self.datos["tareas"].append({"texto": tarea_texto.strip(), "completada": False})
             self.callback_guardar()
             self.actualizar_lista()
 
+    def actualizar_lista(self):
+        # Limpiar elementos visuales previos
+        for widget in self.scroll_frame.winfo_children():
+            widget.destroy()
+
+        for idx, tarea in enumerate(self.datos.get("tareas", [])):
+            
+            # 🛡️ CAPA DE MIGRACIÓN AUTOMÁTICA EN CALIENTE
+            # Si la tarea guardada es un texto plano (versión antigua), la transformamos a diccionario al vuelo
+            if isinstance(tarea, str):
+                tarea = {"texto": tarea, "completada": False}
+                self.datos["tareas"][idx] = tarea  # Actualizamos la memoria
+                self.callback_guardar()            # Sincronizamos el archivo JSON
+
+            frame_item = tk.Frame(self.scroll_frame, bg=self.cget("bg"), pady=5)
+            frame_item.pack(fill="x", expand=True)
+
+            # Checkbox interactivo
+            var_check = tk.BooleanVar(value=tarea.get("completada", False))
+            cb = tk.Checkbutton(
+                frame_item, text=tarea.get("texto", ""), variable=var_check,
+                bg=self.cget("bg"), fg="#ffffff", activebackground=self.cget("bg"),
+                activeforeground="#ffffff", selectcolor="#202225", font=("Arial", 11),
+                command=lambda i=idx, v=var_check: self.conmutar_tarea(i, v)
+            )
+            cb.pack(side="left", anchor="w")
+
+            # Botón eliminar individual discreto
+            btn_del = tk.Button(
+                frame_item, text="❌", bg=self.cget("bg"), fg="#ff4444", bd=0,
+                cursor="hand2", font=("Arial", 10), command=lambda i=idx: self.eliminar_tarea(i)
+            )
+            btn_del.pack(side="right", padx=10)
+
+    def conmutar_tarea(self, index, var):
+        self.datos["tareas"][index]["completada"] = var.get()
+        self.callback_guardar()
+
     def eliminar_tarea(self, index):
-        if 0 <= index < len(self.datos.get("tareas", [])):
-            self.datos["tareas"].pop(index)
-            self.callback_guardar()
-            self.actualizar_lista()
+        self.datos["tareas"].pop(index)
+        self.callback_guardar()
+        self.actualizar_lista()
+
+    def aplicar_tema(self, colores):
+        self.configure(bg=colores["bg"])
+        self.lbl_titulo.configure(bg=colores["bg"], fg=colores["fg"])
+        self.canvas.configure(bg=colores["bg"])
+        self.scroll_frame.configure(bg=colores["bg"])
+        self.btn_fab_tarea.configure(bg=colores.get("accent", "#ff007f"))
+        self.actualizar_lista()
