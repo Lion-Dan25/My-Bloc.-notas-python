@@ -1,131 +1,137 @@
 import tkinter as tk
-from tkinter import Toplevel, ttk
-import database
+from tkinter import messagebox
+from database import cargar_datos, guardar_datos
 from gui_notas import PanelNotas
 from gui_tareas import PanelTareas
+# CONFIGURACIÓN INTEGRADA: Importación del nuevo módulo de diccionario para la arquitectura
+from gui_diccionario import PanelDiccionario 
 
-# Diccionario central de temas profesionales
-TEMAS = {
-    "Oscuro Nórdico": {"bg": "#2F343F", "fg": "#FFFFFF", "accent": "#4B5162", "btn_nav": "#5294E2", "text_bg": "#383C4A"},
-    "Cyberpunk": {"bg": "#001219", "fg": "#00F5D4", "accent": "#7B2CBF", "btn_nav": "#9B5DE5", "text_bg": "#240046"},
-    "Pastel Relajante": {"bg": "#F7EDE2", "fg": "#F28482", "accent": "#F5CAC3", "btn_nav": "#84A59D", "text_bg": "#FFFFFF"},
-    "Monocromo": {"bg": "#FFFFFF", "fg": "#000000", "accent": "#E0E0E0", "btn_nav": "#333333", "text_bg": "#F5F5F5"}
-}
-
-class AppPrincipal:
+class BlocApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Bloc Cool 🚀")
-        self.root.geometry("450x650")
+        self.root.title("Proyecto Bloc Cool 🚀")
+        self.root.geometry("850x600")
+        self.root.configure(bg="#202225")
+
+        # Cargar base de datos compartida
+        self.datos = cargar_datos()
+
+        # Asegurar estructuras base correctas
+        if "notas" not in self.datos or not isinstance(self.datos["notas"], list):
+            self.datos["notas"] = []
+        if "tareas" not in self.datos:
+            self.datos["tareas"] = []
+        # CONFIGURACIÓN INTEGRADA: Estructura base para los datos del diccionario
+        if "diccionario" not in self.datos:
+            self.datos["diccionario"] = []
+
+        # Contenedor central de pantallas
+        self.contenedor_pantallas = tk.Frame(self.root, bg="#36393f")
+        self.contenedor_pantallas.pack(fill="both", expand=True)
+
+        # Inicializar los paneles modulares
+        self.panel_notas = PanelNotas(self.contenedor_pantallas, self.datos, self.guardar_cambios)
+        self.panel_tareas = PanelTareas(self.contenedor_pantallas, self.datos, self.guardar_cambios)
+        # CONFIGURACIÓN INTEGRADA: Panel modular del Diccionario
+        self.panel_diccionario = PanelDiccionario(self.contenedor_pantallas, self.datos, self.guardar_cambios)
+
+        # Iniciar mostrando el panel de notas por defecto
+        self.pantalla_actual = self.panel_notas
+        self.pantalla_actual.pack(fill="both", expand=True)
+
+        # Construir los elementos visuales de navegación
+        self.crear_barra_navegacion()
+
+        # CONFIGURACIÓN INTEGRADA: Inicializar el tema de forma defensiva y automática al arrancar
+        tema_inicio = {"bg": "#36393f", "panel": "#2f3136", "fg": "#ffffff", "accent": "#7289da"}
+        self.aplicar_tema_global(tema_inicio)
+
+    def crear_barra_navegacion(self):
+        # CONFIGURACIÓN CORREGIDA: Se guarda en 'self' para que sea accesible desde el gestor de temas
+        self.barra_nav = tk.Frame(self.root, bg="#2f3136", height=65)
+        self.barra_nav.pack(side="bottom", fill="x")
+        self.barra_nav.pack_propagate(False)
+
+        # Estilo común para botones limpios (solo icono)
+        estilo_btn = {
+            "bg": "#2f3136", "fg": "#b9bbbe", "activebackground": "#36393f",
+            "activeforeground": "#ffffff", "bd": 0, "font": ("Segoe UI", 18),
+            "cursor": "hand2", "padx": 20
+        }
+
+        # Botón Notas (Icono Grande)
+        self.btn_notas = tk.Button(self.barra_nav, text="📝", command=lambda: self.cambiar_pantalla(self.panel_notas), **estilo_btn)
+        self.btn_notas.pack(side="left", expand=True, fill="both")
+
+        # Botón Tareas (Icono Grande)
+        self.btn_tareas = tk.Button(self.barra_nav, text="🖊️", command=lambda: self.cambiar_pantalla(self.panel_tareas), **estilo_btn)
+        self.btn_tareas.pack(side="left", expand=True, fill="both")
+
+        # CONFIGURACIÓN INTEGRADA: Botón del módulo de Diccionario (Libro) para la barra inferior
+        self.btn_diccionario = tk.Button(self.barra_nav, text="📖", command=lambda: self.cambiar_pantalla(self.panel_diccionario), **estilo_btn)
+        self.btn_diccionario.pack(side="left", expand=True, fill="both")
+
+        # Botón de Configuración Rápida de Tema (Engranaje)
+        self.btn_config = tk.Button(self.barra_nav, text="⚙️", command=self.abrir_menu_temas, **estilo_btn)
+        self.btn_config.pack(side="left", expand=True, fill="both")
+
+    def cambiar_pantalla(self, nueva_pantalla):
+        self.pantalla_actual.pack_forget()
+        self.pantalla_actual = nueva_pantalla
+        self.pantalla_actual.pack(fill="both", expand=True)
+
+    def abrir_menu_temas(self):
+        # Una pequeña ventana emergente minimalista
+        ventana_temas = tk.Toplevel(self.root)
+        ventana_temas.title("Temas")
+        ventana_temas.geometry("250x200")
+        ventana_temas.configure(bg="#2f3136")
+        ventana_temas.resizable(False, False)
+
+        tk.Label(ventana_temas, text="Selecciona un Estilo", bg="#2f3136", fg="#ffffff", font=("Arial", 12, "bold")).pack(pady=10)
+
+        # Diccionario directo de temas centrales
+        temas = {
+            "Oscuro Cyberpunk": {"bg": "#121212", "panel": "#1e1e1e", "fg": "#00ff66", "accent": "#ff007f"},
+            "Modo Discord": {"bg": "#36393f", "panel": "#2f3136", "fg": "#ffffff", "accent": "#7289da"},
+            "Sepia Vintage": {"bg": "#f4ecd8", "panel": "#e4dcbc", "fg": "#5b4636", "accent": "#8c6d53"}
+        }
+
+        for nombre, colores in temas.items():
+            btn = tk.Button(
+                ventana_temas, text=nombre, bg=colores["panel"], fg=colores["fg"],
+                font=("Arial", 10), bd=0, pady=5, cursor="hand2",
+                command=lambda c=colores: self.aplicar_tema_global(c)
+            )
+            btn.pack(fill="x", padx=20, pady=5)
+
+    def aplicar_tema_global(self, colores):
+        # CONFIGURACIÓN CORREGIDA: Cambia los contenedores del archivo principal armónicamente
+        self.root.configure(bg=colores["bg"])
+        self.contenedor_pantallas.configure(bg=colores["bg"])
+        self.barra_nav.configure(bg=colores["panel"])
         
-        # Cargar datos e inicializar tema por defecto
-        self.datos = database.cargar_datos()
-        self.tema_actual = "Oscuro Nórdico"
+        # CONFIGURACIÓN CORREGIDA: Bucle dinámico para rediseñar todos los botones inferiores a la vez
+        botones_navegacion = [self.btn_notas, self.btn_tareas, self.btn_diccionario, self.btn_config]
+        for btn in botones_navegacion:
+            btn.configure(
+                bg=colores["panel"],
+                fg=colores["fg"],
+                activebackground=colores["bg"],
+                activeforeground=colores["fg"]
+            )
         
-        # Contenedor principal superior (Barra de herramientas)
-        self.header_frame = tk.Frame(root, bd=0, height=50)
-        self.header_frame.pack(fill="x", side="top")
-        
-        # Botón de Engranaje (Configuración) en la esquina superior derecha
-        self.btn_config = tk.Button(
-            self.header_frame, text="⚙️", font=("Segoe UI", 16),
-            bd=0, cursor="hand2", command=self.abrir_configuracion
-        )
-        self.btn_config.pack(side="right", padx=15, pady=5)
-        
-        # Contenedor central donde se alternarán los paneles
-        self.contenedor_central = tk.Frame(root, bd=0)
-        self.contenedor_central.pack(fill="both", expand=True)
-        
-        # Inicializar los paneles hijos dentro del contenedor central
-        self.panel_notas = PanelNotas(self.contenedor_central, self.datos, self.guardar_cambios)
-        self.panel_tareas = PanelTareas(self.contenedor_central, self.datos, self.guardar_cambios)
-        
-        # Barra de navegación inferior
-        self.nav_bar = tk.Frame(root, bd=0, height=60)
-        self.nav_bar.pack(fill="x", side="bottom")
-        
-        # Botón de Notas (Icono de Nota)
-        self.btn_nav_notas = tk.Button(
-            self.nav_bar, text="📝 Notas", font=("Segoe UI", 12, "bold"),
-            bd=0, cursor="hand2", command=lambda: self.mostrar_pantalla("notas")
-        )
-        self.btn_nav_notas.pack(side="left", fill="both", expand=True)
-        
-        # Botón de Tareas (Icono de Lápiz/Check)
-        self.btn_nav_tareas = tk.Button(
-            self.nav_bar, text="✏️ Tareas", font=("Segoe UI", 12, "bold"),
-            bd=0, cursor="hand2", command=lambda: self.mostrar_pantalla("tareas")
-        )
-        self.btn_nav_tareas.pack(side="right", fill="both", expand=True)
-        
-        # Mostrar la pantalla de notas al arrancar y aplicar colores iniciales
-        self.mostrar_pantalla("notas")
-        self.actualizar_diseno_global()
+        # Propagar la paleta de colores hacia las clases y paneles hijos
+        self.panel_notas.aplicar_tema(colores)
+        self.panel_tareas.aplicar_tema(colores)
+        self.panel_diccionario.aplicar_tema(colores)
 
     def guardar_cambios(self):
-        database.guardar_datos(self.datos)
-
-    def mostrar_pantalla(self, pantalla):
-        """Oculta un panel y muestra el otro simulando navegación por pestañas"""
-        if pantalla == "notas":
-            self.panel_tareas.pack_forget()
-            self.panel_notas.pack(fill="both", expand=True)
-        elif pantalla == "tareas":
-            self.panel_notas.pack_forget()
-            self.panel_tareas.pack(fill="both", expand=True)
-
-    def abrir_configuracion(self):
-        """Abre una ventana flotante y estilizada para elegir el tema"""
-        ventana_config = Toplevel(self.root)
-        ventana_config.title("Temas")
-        ventana_config.geometry("280x250")
-        ventana_config.grab_set() # Bloquea la ventana principal hasta cerrar esta
-        
-        colores = TEMAS[self.tema_actual]
-        ventana_config.configure(bg=colores["bg"])
-        
-        lbl = tk.Label(ventana_config, text="Selecciona un Tema", font=("Segoe UI", 12, "bold"), bg=colores["bg"], fg=colores["fg"])
-        lbl.pack(pady=15)
-        
-        for nombre_tema in TEMAS.keys():
-            btn = tk.Button(
-                ventana_config, text=nombre_tema, font=("Segoe UI", 10),
-                bg=colores["accent"], fg=colores["fg"], bd=0, pady=5, width=20, cursor="hand2",
-                command=lambda t=nombre_tema: [self.cambiar_tema_global(t), ventana_config.destroy()]
-            )
-            btn.pack(pady=5)
-
-    def cambiar_tema_global(self, nombre_tema):
-        self.tema_actual = nombre_tema
-        self.actualizar_diseno_global()
-
-    def actualizar_diseno_global(self):
-        """Aplica el esquema de colores seleccionado a todos los componentes raíz y secundarios"""
-        colores = TEMAS[self.tema_actual]
-        
-        # Colores de la app principal
-        self.root.configure(bg=colores["bg"])
-        self.header_frame.configure(bg=colores["bg"])
-        self.contenedor_central.configure(bg=colores["bg"])
-        self.nav_bar.configure(bg=colores["bg"])
-        
-        # Botón engranaje
-        self.btn_config.configure(bg=colores["bg"], fg=colores["fg"], activebackground=colores["accent"])
-        
-        # Botones de navegación inferior
-        self.btn_nav_notas.configure(bg=colores["accent"], fg=colores["fg"], activebackground=colores["btn_nav"])
-        self.btn_nav_tareas.configure(bg=colores["accent"], fg=colores["fg"], activebackground=colores["btn_nav"])
-        
-        # Propagar el tema a los paneles internos (asumiendo que tienen el método aplicar_tema)
-        if hasattr(self.panel_notas, "aplicar_tema"):
-            self.panel_notas.aplicar_tema(colores)
-        if hasattr(self.panel_tareas, "aplicar_tema"):
-            self.panel_tareas.aplicar_tema(colores)
+        guardar_datos(self.datos)
 
 def main():
     root = tk.Tk()
-    app = AppPrincipal(root)
+    app = BlocApp(root)
     root.mainloop()
 
 if __name__ == "__main__":
