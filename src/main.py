@@ -7,7 +7,7 @@ def main():
     # 1. Inicializar y cargar los datos centralizados desde el JSON
     datos = database.cargar_datos()
 
-    # 2. Configurar la ventana principal de la aplicación (Root)
+    # 2. Configurar la ventana principal de la aplicación (Root) añadiendo un fondo oscuro y un tamaño inicial
     root = tk.Tk()
     root.title("Proyecto Bloc Cool ⚡ Architecture Edition")
     root.geometry("950x600")
