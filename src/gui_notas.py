@@ -25,20 +25,20 @@ class PanelNotas(tk.Frame):
         self.cargar_nota_inicial()
 
     def crear_componentes(self):
-        # Barra superior interna exclusiva para herramientas del editor
-        frame_herramientas = tk.Frame(self, bg="#2f3136", height=40)
-        frame_herramientas.pack(fill="x", side="top")
-        frame_herramientas.pack_propagate(False)
+        # Barra superior interna exclusiva para herramientas del editor (Guardada en self)
+        self.frame_herramientas = tk.Frame(self, bg="#2f3136", height=40)
+        self.frame_herramientas.pack(fill="x", side="top")
+        self.frame_herramientas.pack_propagate(False)
 
-        lbl_tema = tk.Label(
-            frame_herramientas, text="🎨 Tema Visual:", 
+        self.lbl_tema = tk.Label(
+            self.frame_herramientas, text="🎨 Tema Visual:", 
             bg="#2f3136", fg="#b9bbbe", font=("Segoe UI", 10)
         )
-        lbl_tema.pack(side="left", padx=10, pady=5)
+        self.lbl_tema.pack(side="left", padx=10, pady=5)
 
-        # Menu desplegable de temas
+        # Menú desplegable de temas
         self.combo_temas = ttk.Combobox(
-            frame_herramientas, values=list(self.temas.keys()), 
+            self.frame_herramientas, values=list(self.temas.keys()), 
             state="readonly", width=15
         )
         self.combo_temas.set("Oscuro Discord")
@@ -64,7 +64,7 @@ class PanelNotas(tk.Frame):
         self.txt_editor.insert("1.0", texto_previo)
 
     def cambiar_tema(self, event=None):
-        """Modifica dinámicamente el estilo visual de la caja de texto."""
+        """Modifica dinámicamente el estilo visual de la caja de texto (Local)."""
         tema_elegido = self.combo_temas.get()
         estilo = self.temas.get(tema_elegido, self.temas["Oscuro Discord"])
         
@@ -76,6 +76,25 @@ class PanelNotas(tk.Frame):
         
         # Ajustamos el cursor para que no se pierda en fondos claros
         if estilo["bg"] == "#ffffff":
+            self.txt_editor.configure(insertbackground="black")
+        else:
+            self.txt_editor.configure(insertbackground="white")
+
+    def aplicar_tema(self, colores):
+        """MÉTODO NUEVO: Escucha los cambios del engranaje global en main.py"""
+        bg = colores.get("bg", "#36393f")
+        fg = colores.get("fg", "#ffffff")
+        input_bg = colores.get("input_bg", "#2f3136")
+        text_muted = colores.get("text_muted", "#b9bbbe")
+
+        # Actualizamos todos los componentes del panel
+        self.configure(bg=bg)
+        self.frame_herramientas.configure(bg=input_bg)
+        self.lbl_tema.configure(bg=input_bg, fg=text_muted)
+        self.txt_editor.configure(bg=bg, fg=fg)
+        
+        # Cambiar el color del cursor adaptativamente
+        if bg == "#ffffff":
             self.txt_editor.configure(insertbackground="black")
         else:
             self.txt_editor.configure(insertbackground="white")
